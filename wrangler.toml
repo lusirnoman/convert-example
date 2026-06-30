@@ -1,8 +1,8 @@
-name = "convert-examples"
+name = "__CF_WORKER_NAME__"
 main = "_worker.js"
 compatibility_date = "2025-11-04"
 keep_vars = true
 
 [[kv_namespaces]]
 binding = "KV"			#KV绑定名默认不可修改
-id = "2d2ab936512e4e57b3ff0657d84d8716"				#KV数据库id
+id = "__CF_KV_NAMESPACE_ID__"				#KV数据库id

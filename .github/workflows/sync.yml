@@ -32,22 +32,19 @@ jobs:
           # Set test_mode true to run tests instead of the true action!!
           test_mode: false
 
-      - name: Restore local wrangler config from repository secrets
-        env:
-          CF_WORKER_NAME: ${{ secrets.CF_WORKER_NAME }}
-          CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
-        run: python .github/scripts/restore_local_wrangler_config.py
+      - name: Sanitize tracked wrangler config template
+        run: python .github/scripts/restore_local_wrangler_config.py sanitize
 
-      - name: Commit restored local config
+      - name: Commit wrangler config template updates
         run: |
           if git diff --quiet -- wrangler.toml .github/scripts/restore_local_wrangler_config.py; then
-            echo "No local config changes to commit"
+            echo "No wrangler template changes to commit"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add wrangler.toml .github/scripts/restore_local_wrangler_config.py
-          git commit -m "chore: restore local wrangler config after upstream sync"
+          git commit -m "chore: preserve wrangler config template after upstream sync"
           git push origin HEAD:main
 
       - name: Sync check

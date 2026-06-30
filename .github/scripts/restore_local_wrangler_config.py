@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import re
 import sys
 from pathlib import Path
 
 WRANGLER_PATH = Path("wrangler.toml")
+WORKER_NAME_PLACEHOLDER = "__CF_WORKER_NAME__"
+KV_NAMESPACE_ID_PLACEHOLDER = "__CF_KV_NAMESPACE_ID__"
 
 
 def require_env(name: str) -> str:
@@ -46,18 +49,59 @@ def replace_kv_binding(text: str, kv_namespace_id: str) -> str:
     raise SystemExit("wrangler.toml is missing the KV namespace block")
 
 
-def main() -> int:
+def normalize_template(text: str) -> str:
+    return replace_kv_binding(replace_name(text, WORKER_NAME_PLACEHOLDER), KV_NAMESPACE_ID_PLACEHOLDER)
+
+
+def render_runtime_config(text: str) -> str:
     worker_name = require_env("CF_WORKER_NAME")
     kv_namespace_id = require_env("CF_KV_NAMESPACE_ID")
+    template = normalize_template(text)
+    return replace_kv_binding(replace_name(template, worker_name), kv_namespace_id)
 
-    text = WRANGLER_PATH.read_text(encoding="utf-8")
-    updated = replace_kv_binding(replace_name(text, worker_name), kv_namespace_id)
 
-    if updated != text:
-        WRANGLER_PATH.write_text(updated + ("\n" if not updated.endswith("\n") else ""), encoding="utf-8")
-        print("updated wrangler.toml")
-    else:
-        print("wrangler.toml already matches configured secrets")
+def write_if_changed(path: Path, content: str) -> bool:
+    final_content = content + ("\n" if not content.endswith("\n") else "")
+    previous = path.read_text(encoding="utf-8") if path.exists() else None
+    if previous == final_content:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(final_content, encoding="utf-8")
+    return True
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Sanitize tracked wrangler.toml or render a runtime-only config from secrets."
+    )
+    parser.add_argument(
+        "mode",
+        nargs="?",
+        choices=("sanitize", "render"),
+        default="sanitize",
+        help="sanitize tracked wrangler.toml placeholders, or render a runtime-only config file",
+    )
+    parser.add_argument("--input", default=str(WRANGLER_PATH), help="source wrangler template path")
+    parser.add_argument(
+        "--output",
+        help="output path for render mode; defaults to .wrangler/wrangler.runtime.toml",
+    )
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    input_path = Path(args.input)
+    text = input_path.read_text(encoding="utf-8")
+
+    if args.mode == "sanitize":
+        changed = write_if_changed(input_path, normalize_template(text))
+        print("sanitized tracked wrangler.toml" if changed else "tracked wrangler.toml already sanitized")
+        return 0
+
+    output_path = Path(args.output or ".wrangler/wrangler.runtime.toml")
+    changed = write_if_changed(output_path, render_runtime_config(text))
+    print(f"rendered runtime wrangler config at {output_path}" if changed else f"runtime wrangler config already up to date at {output_path}")
     return 0
 
 
