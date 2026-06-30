@@ -84,7 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", default=str(WRANGLER_PATH), help="source wrangler template path")
     parser.add_argument(
         "--output",
-        help="output path for render mode; defaults to .wrangler/wrangler.runtime.toml",
+        help="output path for render mode; defaults to wrangler.runtime.toml at repo root",
     )
     return parser
 
@@ -99,7 +99,7 @@ def main() -> int:
         print("sanitized tracked wrangler.toml" if changed else "tracked wrangler.toml already sanitized")
         return 0
 
-    output_path = Path(args.output or ".wrangler/wrangler.runtime.toml")
+    output_path = Path(args.output or "wrangler.runtime.toml")
     changed = write_if_changed(output_path, render_runtime_config(text))
     print(f"rendered runtime wrangler config at {output_path}" if changed else f"runtime wrangler config already up to date at {output_path}")
     return 0
